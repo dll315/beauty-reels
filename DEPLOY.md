@@ -100,21 +100,12 @@ schtasks /create /tn "BeautyReels" /tr "D:\Zcodeworks\beauty-reels\启动网站.
 
 ## 方案五：纯静态托管（GitHub Pages / Cloudflare Pages）——受限模式
 
-`index.html` 是单文件，把它单独丢到任意静态托管即可观看（直连模式）。
+`index.html` 是单文件，单独托管即可观看（直连模式）。页面会**自动探测**后端是否存在（404 即自动降级），无需任何配置。
 
 - 优点：零服务器、零成本
 - 限制：浏览器 CORS 限制导致**收藏 / 历史 / 下载不可用**（这些功能依赖本地服务解析直链），会有相应提示
 
-GitHub Pages 发布方法：
-
-```bash
-git clone https://github.com/dll315/beauty-reels.git
-cd beauty-reels
-git checkout --orphan site
-git rm -rf . && git checkout main -- index.html
-git commit -m "static site" && git push origin site
-# 仓库 Settings → Pages → 分支选 site
-```
+GitHub Pages 已在仓库的 `gh-pages` 分支预置（仅含 index.html），推送后在仓库 **Settings → Pages** 选择 `gh-pages` 分支即可，地址为 `https://dll315.github.io/beauty-reels/`。
 
 ---
 
