@@ -303,7 +303,7 @@ body{
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
       <div style="font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:8px;">
-        📣 抖音近期视频源（可选增强）：到 <a href="https://api.istero.com" target="_blank" rel="noopener" style="color:#ffd3e8;">istero.com</a> 免费注册并在控制台创建应用，把 Token 粘贴到这里保存。启用后约四成视频来自<b>抖音近期热门小姐姐</b>（带博主信息的以实际返回为准）。留空则不启用。
+        📣 抖音近期视频源（可选增强）：到 <a href="https://api.istero.com" target="_blank" rel="noopener" style="color:#ffd3e8;">istero.com</a> 免费注册并在控制台创建应用，把 Token 粘贴到这里保存。启用后约一半视频来自<b>抖音近期热门小姐姐</b>（当前免费接口里最新鲜的内容）。留空则不启用。
       </div>
       <div class="acct-row"><input id="dyToken" placeholder="粘贴 istero Token（留空关闭）" autocomplete="off"><button id="dyTokSave" class="go">保存</button></div>
     </div>
@@ -537,9 +537,9 @@ window.addEventListener("unhandledrejection", function (e) {
       }
       done(pick);
     }
-    /* 若填了抖音源 Token：约四成解析走抖音近期小姐姐，其余走多分类源 */
+    /* 若填了抖音源 Token：约五成解析走抖音近期小姐姐，其余走多分类源 */
     var tokDy = LS.get("xjj_istero", "");
-    if (tokDy && Math.random() < 0.4) {
+    if (tokDy && Math.random() < 0.5) {
       fetchResolve(apiUrl("/api/resolve?src=douyin&token=" + encodeURIComponent(tokDy)), "抖音").then(step, function () { step(null); });
     } else {
       var f1 = pickEp(); lastYujn = f1;
@@ -708,7 +708,14 @@ window.addEventListener("unhandledrejection", function (e) {
     saveHist();
   }
 
-  var lastSwitchTs = 0;
+  var lastSwitchTs = 0, swipeHist = [];
+  function isFastSwiper() {            /* 最近 6 秒内切换 ≥2 次 = 手快用户，预载更激进 */
+    var now = performance.now();
+    swipeHist.push(now);
+    while (swipeHist.length && now - swipeHist[0] > 6000) swipeHist.shift();
+    return swipeHist.length >= 2;
+  }
+  function bufThreshold() { return isFastSwiper() ? 0.30 : 0.45; }
   function beginSwitch(showLoading) {
     if (switching) return false;
     switching = true;
@@ -775,8 +782,8 @@ window.addEventListener("unhandledrejection", function (e) {
     var next = nextSlot();
     if (next.getAttribute("data-buffered") || !next.getAttribute("data-url")) { pendingPreload = false; return; }
     var el = active(), d = el.duration, nb = el.buffered;
-    var covered = !!(nb.length && d && nb.end(nb.length - 1) >= d * 0.72);
-    var waited = performance.now() - lastSwitchTs > 4500;
+    var covered = !!(nb.length && d && nb.end(nb.length - 1) >= d * bufThreshold());
+    var waited = performance.now() - lastSwitchTs > 3200;
     if ((el.readyState >= 4 && covered) || waited) {
       pendingPreload = false;
       disarmBufferWatch();
@@ -788,7 +795,7 @@ window.addEventListener("unhandledrejection", function (e) {
     var el = active();
     var onProg = function () {
       var nb = el.buffered, d = el.duration;
-      if ((nb.length && d && nb.end(nb.length - 1) >= d * 0.72) || el.readyState >= 4) {
+      if ((nb.length && d && nb.end(nb.length - 1) >= d * bufThreshold()) || el.readyState >= 4) {
         disarmBufferWatch();
         checkAndBuffer();
       }
@@ -796,7 +803,7 @@ window.addEventListener("unhandledrejection", function (e) {
     bufWatchEl = el;
     el.addEventListener("progress", onProg);
     bufWatchFn = function () { el.removeEventListener("progress", onProg); };
-    bufWatchTimer = setTimeout(function () { disarmBufferWatch(); checkAndBuffer(); }, 4600);
+    bufWatchTimer = setTimeout(function () { disarmBufferWatch(); checkAndBuffer(); }, 3200);
   }
   function disarmBufferWatch() {
     if (bufWatchEl && bufWatchFn) { bufWatchEl.removeEventListener("progress", bufWatchFn); }

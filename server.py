@@ -159,7 +159,8 @@ def main():
     global ACCESS_KEY
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1", help="监听地址：本机 127.0.0.1，局域网/容器用 0.0.0.0")
-    ap.add_argument("--port", type=int, default=PORT_DEFAULT)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", PORT_DEFAULT)),
+                    help="监听端口（默认 8899；可用环境变量 PORT 覆盖，便于 Docker 换端口）")
     ap.add_argument("--token", default="", help="可选：接口访问口令（也可用环境变量 ACCESS_TOKEN）")
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()

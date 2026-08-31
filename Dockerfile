@@ -9,5 +9,5 @@ ENV PORT=8899 \
 
 EXPOSE 8899
 
-# 公网部署建议：docker run -e ACCESS_TOKEN=你的口令 ...
-CMD ["python", "server.py", "--host", "0.0.0.0", "--port", "8899", "--no-open"]
+# 换端口：docker run -e PORT=9000 -p 9000:9000 ...（也可只改映射 -p 9000:8899）
+CMD ["python", "server.py", "--host", "0.0.0.0", "--no-open"]

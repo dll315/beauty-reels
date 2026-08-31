@@ -24,13 +24,28 @@ docker run -d --name beauty-reels -p 8899:8899 --restart unless-stopped \
   -e ACCESS_TOKEN=你的口令 beauty-reels
 ```
 
+**换端口**（两种改法任选）：
+
+```bash
+# ① 只改宿主机映射（容器内部仍是 8899）——推荐，改一行就行
+docker run -d --name beauty-reels -p 9000:8899 --restart unless-stopped beauty-reels
+# compose 方式：PORT=9000 docker compose up -d
+
+# ② 连容器内部端口一起改（PORT 环境变量生效，需指定 --env-file 或用 -e）
+docker run -d --name beauty-reels -p 9000:9000 -e PORT=9000 --restart unless-stopped beauty-reels
+```
+
 访问 `http://服务器IP:8899/?key=你的口令`（设置了口令时；首次带 key 访问后浏览器自动记住）。
 
-更新版本：
+**更新到最新版**：
 
 ```bash
 cd beauty-reels && git pull
+# compose：
 docker compose up -d --build
+# 或纯 docker（先删旧容器再重建）：
+docker build -t beauty-reels . && docker rm -f beauty-reels
+docker run -d --name beauty-reels -p 8899:8899 --restart unless-stopped beauty-reels
 ```
 
 镜像基于 `python:3.12-slim`，体积约 50MB，内存占用 < 50MB，NAS / 树莓派（arm64 镜像自动拉取）都能跑。

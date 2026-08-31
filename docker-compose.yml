@@ -3,7 +3,7 @@ services:
     build: .
     container_name: beauty-reels
     ports:
-      - "8899:8899"
+      - "${PORT:-8899}:8899"   # 换端口：PORT=9000 docker compose up -d（或直接改这里）
     restart: unless-stopped
     # 公网部署建议打开并修改口令（页面地址后加 ?key=口令 即可记住）：
     # environment:
