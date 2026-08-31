@@ -75,6 +75,8 @@ body{
 .edge-top > *{ pointer-events:auto; }
 .stag{ font-size:11px; font-weight:600; color:#fff; background:rgba(0,0,0,.42);
   border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 10px; backdrop-filter:blur(6px); }
+.stag.hd{ color:#c9ffe2; background:rgba(16,66,44,.5); border-color:rgba(110,255,180,.38);
+  letter-spacing:.08em; }
 .icon-btn{ width:34px; height:34px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
   background:rgba(0,0,0,.42); backdrop-filter:blur(6px); cursor:pointer; display:grid; place-items:center; }
 .icon-btn svg{ width:19px; height:19px; fill:#fff; }
@@ -185,11 +187,16 @@ body{
   .topbar{ padding:10px 12px 4px; }
   .brand-sub{ display:none; }
   .brand-name{ font-size:15px; }
-  .stage{ padding:4px 0 0; }
+  .stage{ padding:2px 0 0; }
   .card{ width:100%; max-width:none; height:100%; aspect-ratio:auto; border-radius:0; box-shadow:none; }
-  .toolbar{ gap:6px; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); }
-  .tbtn{ min-width:48px; padding:6px 6px 4px; }
+  .toolbar{ gap:5px; padding:7px 6px calc(7px + env(safe-area-inset-bottom)); background:linear-gradient(transparent, rgba(8,8,16,.72) 34%); }
+  .tbtn{ min-width:52px; padding:7px 4px 6px; border-radius:16px; }
   .tbtn span{ font-size:10px; }
+  .tbtn svg{ width:20px; height:20px; }
+  .info{ left:12px; right:66px; bottom:16px; }
+  .v-title{ font-size:15.5px; }
+  .rail{ right:8px; bottom:92px; }
+  .rail-btn{ width:46px; height:46px; }
   .footbar{ display:none; }
 }
 </style>
@@ -222,7 +229,10 @@ body{
     <div id="playBadge" class="play-badge hidden"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div>
 
     <div class="edge-top">
-      <span id="seqTag" class="stag">#1</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="seqTag" class="stag">#1</span>
+        <span id="hdTag" class="stag hd hidden">HD</span>
+      </div>
       <button id="btnMute" class="icon-btn" title="声音开关 (M)">
         <svg id="icoMuted" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3l3-3-1.4-1.4-3 3-3-3L10.7 9l3 3-3 3 1.4 1.4 3-3 3 3 1.4-1.4-3-3z"/></svg>
         <svg id="icoSound" viewBox="0 0 24 24" class="hidden"><path d="M4 9v6h4l5 4V5L8 9H4zm11.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4zM13 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
@@ -324,6 +334,8 @@ window.addEventListener("unhandledrejection", function (e) {
 <script>
 (function () {
   "use strict";
+  var APP_VER = "3.5";
+  console.log("[小姐姐放映厅] v" + APP_VER + " 已加载 · " + new Date().toLocaleTimeString());
 
   /* ================= 视频源：遇见 API 多分类加权轮换（近期内容优先） ================= */
   var SOURCES = [
@@ -460,11 +472,17 @@ window.addEventListener("unhandledrejection", function (e) {
     slot.removeAttribute("data-ready");
     try { slot.load(); } catch (e) {}
   }
-  /* 服务模式：先解析直链再上屏（收藏/历史/下载都有真实地址）；直连模式：302 直接播 */
+  /* 服务模式：先解析直链再上屏；静态托管（如 GitHub Pages）探测到 404 自动转直连模式 */
+  var noSrv = false;
   function fetchResolve(reqUrl, epn) {
+    if (noSrv) return Promise.resolve(null);
     return fetch(reqUrl)
-      .then(function (r) { return r.json(); })
-      .then(function (d) { return (d && d.ok && d.url) ? { url: d.url, epn: epn } : null; })
+      .then(function (r) {
+        if (r.status === 404) { noSrv = true; return null; }
+        return r.json().then(
+          function (d) { return (d && d.ok && d.url) ? { url: d.url, epn: epn } : null; },
+          function () { return null; });
+      })
       .catch(function () { return null; });
   }
   function yujnReq(ep) { return apiUrl("/api/resolve?u=" + encodeURIComponent(ep)); }
@@ -477,7 +495,7 @@ window.addEventListener("unhandledrejection", function (e) {
   } catch (e) {}
   function apiUrl(u) { return API_KEY ? u + (u.indexOf("?") > -1 ? "&" : "?") + "key=" + encodeURIComponent(API_KEY) : u; }
   function resolveSlot(slot, autoLoad, cb) {
-    if (!SRV) { var g0 = pickEp(); apply(slot, g0, false, epName(g0)); if (cb) cb(false); return; }
+    if (!SRV || noSrv) { var g0 = pickEp(); apply(slot, g0, false, epName(g0)); if (cb) cb(false); return; }
     if (resolving > 2 && autoLoad) {      /* 解析堆积时降级为 302 直连，绝不卡住用户 */
       var ff = pickEp(); apply(slot, ff, false, epName(ff)); if (cb) cb(false); return;
     }
@@ -564,6 +582,11 @@ window.addEventListener("unhandledrejection", function (e) {
         errStreak = 0;
         noteQuality(el.getAttribute("data-epn"), h);
         updateMeta(el);
+        /* 清晰度角标：720P+ 显示 HD，1080P+ 显示 蓝光 */
+        var hdTag = $("hdTag");
+        if (h >= 1080) { hdTag.textContent = "蓝光 1080P"; hdTag.classList.remove("hidden"); }
+        else if (h >= 720) { hdTag.textContent = "超清 720P"; hdTag.classList.remove("hidden"); }
+        else hdTag.classList.add("hidden");
       }
     });
     el.addEventListener("canplay", function () {
@@ -618,7 +641,13 @@ window.addEventListener("unhandledrejection", function (e) {
     }
   }
 
-  function show(el) { slots.forEach(function (s) { s.classList.toggle("off", s !== el); }); }
+  function show(el) {
+    slots.forEach(function (s) {
+      var on = s === el;
+      s.classList.toggle("off", !on);
+      if (!on && !s.paused) s.pause();   /* 关键：切走的视频必须暂停，否则会多条声音重叠 */
+    });
+  }
 
   var autoMuteDone = false, stallTimer = null;
   function armStallGuard() {          /* 加载超时兜底：9 秒没起播就自动换 */
@@ -629,6 +658,8 @@ window.addEventListener("unhandledrejection", function (e) {
   }
   function clearStallGuard() { clearTimeout(stallTimer); }
   function tryPlay() {
+    /* 单声源强制保证：任何时刻只允许当前槽位发声，其余一律暂停（防多视频声音重叠） */
+    slots.forEach(function (s) { if (s !== active() && !s.paused) s.pause(); });
     armStallGuard();
     var p = active().play();
     if (p && p.catch) p.catch(function () {
