@@ -31,6 +31,16 @@
 - 免费采集 API 的内容多采集于 2023~2024 年，已按池子做「近期优先」；真正的当日抖音热榜需付费数据服务（已预留 istero Token 接入口，注册免费即可启用其一）。
 - 账号纯本地存储：换电脑 / 清浏览器数据后收藏不迁移；密码遗失无法找回。
 
+## 部署
+
+支持 **Docker**（VPS/NAS/群晖）、**Render/Railway 云平台一键**、**VPS systemd**、**本地 Windows 常驻**、**纯静态托管（受限模式）** 五种方案，含公网访问口令保护说明——见 [DEPLOY.md](DEPLOY.md)。
+
+```bash
+# Docker 最速示例
+git clone https://github.com/dll315/beauty-reels.git && cd beauty-reels
+docker compose up -d --build     # 访问 http://IP:8899
+```
+
 ## 文件结构
 
 ```
