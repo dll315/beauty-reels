@@ -35,10 +35,21 @@
 
 支持 **Docker**（VPS/NAS/群晖）、**Render/Railway 云平台一键**、**VPS systemd**、**本地 Windows 常驻**、**纯静态托管（受限模式）** 五种方案，含公网访问口令保护说明——见 [DEPLOY.md](DEPLOY.md)。
 
+**Docker 部署**：
+
 ```bash
-# Docker 最速示例
+# 首次部署
 git clone https://github.com/dll315/beauty-reels.git && cd beauty-reels
-docker compose up -d --build     # 访问 http://IP:8899
+docker compose up -d --build        # 访问 http://IP:8899
+
+# 更新到最新版
+git pull
+docker compose up -d --build        # 或：docker build -t beauty-reels . && docker rm -f beauty-reels && docker run ...
+
+# 换端口（两种任选）
+docker run -d -p 9000:8899 beauty-reels                    # ① 只改宿主机映射
+docker run -d -p 9000:9000 -e PORT=9000 beauty-reels       # ② 连容器内部端口一起改
+PORT=9000 docker compose up -d --build                     # compose 方式
 ```
 
 ## 文件结构
