@@ -1,0 +1,6 @@
+# 运行产物
+server.log
+__pycache__/
+*.pyc
+.DS_Store
+yujn.html

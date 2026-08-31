@@ -1,0 +1,10 @@
+services:
+  beauty-reels:
+    build: .
+    container_name: beauty-reels
+    ports:
+      - "8899:8899"
+    restart: unless-stopped
+    # 公网部署建议打开并修改口令（页面地址后加 ?key=口令 即可记住）：
+    # environment:
+    #   ACCESS_TOKEN: "改成你的访问口令"
