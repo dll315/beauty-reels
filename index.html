@@ -816,6 +816,10 @@ window.addEventListener("unhandledrejection", function (e) {
   function tryPlay() {
     /* 单声源强制保证：任何时刻只允许当前槽位发声，其余一律暂停（防多视频声音重叠） */
     slots.forEach(function (s) { if (s !== active() && !s.paused) s.pause(); });
+    /* 关键：每次播放前强制应用用户的声音选择。
+       避免「预载时静音、切换时未同步」导致切到第二个视频突然没声音。 */
+    active().muted = desiredMute();
+    updateMuteIcon();
     armStallGuard();
     var p = active().play();
     if (p && p.catch) p.catch(function () {
