@@ -24,6 +24,20 @@ docker run -d --name beauty-reels -p 8899:8899 --restart unless-stopped \
   -e ACCESS_TOKEN=你的口令 beauty-reels
 ```
 
+**画质择优可调参数**（不设置则用默认值）：
+
+| 环境变量 | 默认 | 作用 |
+|---|---|---|
+| `CANDIDATES` | `3` | 并发候选数，越大画质越好、切换解析越慢 |
+| `MIN_KBPS` | `1100` | 最低码率门槛，低于此值的候选视为糊、优先淘汰 |
+| `PROBE` | `1` | 设为 `0` 关闭元数据探测，退化为旧版随机直取 |
+| `PROBE_CACHE` | `300` | 探测结果缓存秒数 |
+
+```bash
+docker run -d --name beauty-reels -p 8899:8899 --restart unless-stopped \
+  -e CANDIDATES=4 -e MIN_KBPS=1500 beauty-reels
+```
+
 **换端口**（两种改法任选）：
 
 ```bash

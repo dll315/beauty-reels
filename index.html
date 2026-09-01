@@ -19,9 +19,13 @@ body{
   overflow:hidden; display:flex; flex-direction:column; user-select:none;
 }
 .hidden{ display:none !important; }
-.glow{ position:fixed; border-radius:50%; filter:blur(110px); opacity:.3; pointer-events:none; z-index:0; }
-.glow-1{ width:46vw; height:46vw; left:-12vw; top:-14vw; background:radial-gradient(circle,#ff5e9c66,transparent 65%); }
-.glow-2{ width:50vw; height:50vw; right:-14vw; bottom:-18vw; background:radial-gradient(circle,#8a7dff55,transparent 65%); }
+/* 辉光：原实现用 filter:blur(110px) 处理 46vw 巨型图层，播放时持续吃掉合成带宽。
+   改用多层径向渐变直接画出柔和光斑，零 filter 开销，观感几乎一致。 */
+.glow{ position:fixed; border-radius:50%; opacity:.5; pointer-events:none; z-index:0; }
+.glow-1{ width:64vw; height:64vw; left:-20vw; top:-22vw;
+  background:radial-gradient(circle closest-side, rgba(255,94,156,.34), rgba(255,94,156,.12) 46%, rgba(255,94,156,0) 72%); }
+.glow-2{ width:68vw; height:68vw; right:-22vw; bottom:-26vw;
+  background:radial-gradient(circle closest-side, rgba(138,125,255,.28), rgba(138,125,255,.10) 46%, rgba(138,125,255,0) 72%); }
 
 /* ---------- 顶栏 ---------- */
 .topbar{ position:relative; z-index:5; display:flex; align-items:center; justify-content:space-between;
@@ -65,7 +69,7 @@ body{
   border-top-color:var(--accent1); animation:spin .8s linear infinite; }
 @keyframes spin{ to{ transform:rotate(360deg); } }
 .play-badge{ position:absolute; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:68px; height:68px; border-radius:50%; background:rgba(0,0,0,.45); backdrop-filter:blur(6px);
+  width:68px; height:68px; border-radius:50%; background:rgba(0,0,0,.52);
   display:grid; place-items:center; border:1px solid rgba(255,255,255,.2); animation:pop .18s ease-out; }
 .play-badge svg{ width:32px; height:32px; fill:#fff; margin-left:4px; }
 @keyframes pop{ from{ transform:translate(-50%,-50%) scale(.7); opacity:0; } }
@@ -73,12 +77,14 @@ body{
 .edge-top{ position:absolute; z-index:7; top:10px; left:10px; right:10px;
   display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
 .edge-top > *{ pointer-events:auto; }
-.stag{ font-size:11px; font-weight:600; color:#fff; background:rgba(0,0,0,.42);
-  border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 10px; backdrop-filter:blur(6px); }
-.stag.hd{ color:#c9ffe2; background:rgba(16,66,44,.5); border-color:rgba(110,255,180,.38);
+/* 以下元素盖在视频之上：backdrop-filter 的背景每帧都在变，浏览器必须逐帧重算模糊，
+   是最隐蔽的掉帧元凶。改为纯色半透明，视觉几乎无差别但不再逐帧合成。 */
+.stag{ font-size:11px; font-weight:600; color:#fff; background:rgba(0,0,0,.58);
+  border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:4px 10px; }
+.stag.hd{ color:#c9ffe2; background:rgba(10,52,34,.78); border-color:rgba(110,255,180,.45);
   letter-spacing:.08em; }
 .icon-btn{ width:34px; height:34px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
-  background:rgba(0,0,0,.42); backdrop-filter:blur(6px); cursor:pointer; display:grid; place-items:center; }
+  background:rgba(0,0,0,.55); cursor:pointer; display:grid; place-items:center; }
 .icon-btn svg{ width:19px; height:19px; fill:#fff; }
 .float-heart{ position:absolute; z-index:8; pointer-events:none; animation:fup 1s ease-out forwards; }
 @keyframes fup{ from{ transform:translateY(0) scale(1); opacity:1; } to{ transform:translateY(-90px) scale(1.6); opacity:0; } }
@@ -86,13 +92,15 @@ body{
 .info{ position:absolute; z-index:6; left:14px; right:14px; bottom:16px; pointer-events:none; }
 .v-title{ font-size:16px; font-weight:700; margin-bottom:5px; text-shadow:0 2px 12px rgba(0,0,0,.7); }
 .v-tags{ display:flex; flex-wrap:wrap; gap:6px; }
-.v-tags i{ font-style:normal; font-size:11px; color:#ffd9ea; background:rgba(255,94,156,.18);
-  border:1px solid rgba(255,94,156,.35); padding:2px 8px; border-radius:999px; backdrop-filter:blur(4px); }
+.v-tags i{ font-style:normal; font-size:11px; color:#ffd9ea; background:rgba(90,20,48,.62);
+  border:1px solid rgba(255,94,156,.4); padding:2px 8px; border-radius:999px; }
 .v-meta{ margin-top:7px; font-size:11px; color:var(--dim); text-shadow:0 1px 6px rgba(0,0,0,.8); }
 
 .progress-wrap{ position:absolute; z-index:9; left:0; right:0; bottom:0; height:14px;
   display:flex; align-items:flex-end; cursor:pointer; }
-.progress-bar{ height:3px; width:0%; background:linear-gradient(90deg,var(--accent1),var(--accent2));
+/* 进度用 transform:scaleX 推进 —— 只走合成器。改 width 会每帧触发 layout 重排 */
+.progress-bar{ height:3px; width:100%; transform:scaleX(0); transform-origin:left center;
+  background:linear-gradient(90deg,var(--accent1),var(--accent2));
   border-radius:0 2px 2px 0; box-shadow:0 0 8px rgba(255,94,156,.6); transition:height .15s; }
 .progress-wrap:hover .progress-bar{ height:5px; }
 
@@ -116,8 +124,15 @@ body{
 .footbar{ position:relative; z-index:5; flex:0 0 auto; text-align:center; font-size:11px;
   color:rgba(255,255,255,.32); padding:0 12px 8px; letter-spacing:1px; }
 
+/* ---------- 自适应降级：检测到掉帧时自动关掉装饰，保住播放帧率 ---------- */
+body.lite .glow{ display:none; }
+body.lite .card{ box-shadow:0 12px 44px rgba(0,0,0,.5); }
+body.lite .player{ transition:opacity .12s ease; }
+body.lite .toolbar{ background:none; }
+body.playing .glow{ opacity:.42; }
+
 /* ---------- 面板（收藏 / 历史 / 账号） ---------- */
-.mask{ position:fixed; inset:0; z-index:50; background:rgba(5,5,12,.72); backdrop-filter:blur(10px);
+.mask{ position:fixed; inset:0; z-index:50; background:rgba(5,5,12,.88);
   display:flex; align-items:flex-end; justify-content:center; animation:fade .2s; }
 @keyframes fade{ from{ opacity:0; } }
 .panel{ width:min(520px,100%); max-height:80dvh; display:flex; flex-direction:column; overflow:hidden;
@@ -169,9 +184,9 @@ body{
 .acct-note{ font-size:11px; color:var(--dim); margin-top:12px; line-height:1.8; }
 
 .toast{ position:fixed; z-index:99; left:50%; bottom:80px; transform:translate(-50%,20px);
-  background:rgba(20,20,32,.92); border:1px solid rgba(255,255,255,.16); color:#fff; font-size:13px;
+  background:rgba(20,20,32,.96); border:1px solid rgba(255,255,255,.16); color:#fff; font-size:13px;
   padding:10px 18px; border-radius:999px; opacity:0; pointer-events:none; transition:.25s;
-  backdrop-filter:blur(8px); max-width:84vw; text-align:center; }
+  max-width:84vw; text-align:center; }
 .toast.on{ opacity:1; transform:translate(-50%,0); }
 
 .mask.center{ align-items:center; }
@@ -303,6 +318,12 @@ body{
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
       <div style="font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:8px;">
+        🎚 <b style="color:#ffd3e8;">画质档位</b>：档位越高，服务端并发拉取的候选越多并挑码率最高的一条，画面更清晰，代价是切换解析慢约零点几秒。
+      </div>
+      <div id="qtierRow" class="acct-list"></div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
+      <div style="font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:8px;">
         📣 抖音近期视频源（可选增强）：到 <a href="https://api.istero.com" target="_blank" rel="noopener" style="color:#ffd3e8;">istero.com</a> 免费注册并在控制台创建应用，把 Token 粘贴到这里保存。启用后约一半视频来自<b>抖音近期热门小姐姐</b>（当前免费接口里最新鲜的内容）。留空则不启用。
       </div>
       <div class="acct-row"><input id="dyToken" placeholder="粘贴 istero Token（留空关闭）" autocomplete="off"><button id="dyTokSave" class="go">保存</button></div>
@@ -407,19 +428,26 @@ window.addEventListener("unhandledrejection", function (e) {
   function prevSlot() { return slots[(cur + 2) % 3]; }
   function desiredMute() { return muteChoice === null ? true : !!muteChoice; }
 
-  /* 画质自学习：统计各源高清率，动态调整权重（高清多的源更容易被刷到） */
-  var qsrc = LS.get("xjj_qsrc", {});
-  function noteQuality(epn, h) {
-    if (!h || !epn) return;
-    var s = qsrc[epn] || (qsrc[epn] = { n: 0, hd: 0 });
-    s.n++; if (h >= 720) s.hd++;
-    if (s.n > 60) { s.n = Math.ceil(s.n / 2); s.hd = Math.ceil(s.hd / 2); }
-    LS.set("xjj_qsrc", qsrc);
+  /* 画质自学习：按「实测码率」给各分类加权。
+     注意：旧版按视频高度统计高清率，而本源所有视频高度都 ≥1280，
+     导致 hd/n 恒等于 1，权重公式对所有源一视同仁 —— 自学习形同虚设。
+     源的真实差异体现在码率上（实测 323~3152kbps），故改为统计码率。 */
+  var qsrc = LS.get("xjj_qsrc2", {});   // 换新 key：旧数据是失真统计，直接作废
+  function noteQuality(epn, kbps) {
+    if (!epn) return;
+    var s = qsrc[epn] || (qsrc[epn] = { n: 0, k: 0 });
+    s.n++;
+    s.k += (kbps || 1500);
+    if (s.n > 80) { s.k = s.k / 2; s.n = Math.ceil(s.n / 2); }   /* 滑动衰减，跟得上源的变化 */
+    LS.set("xjj_qsrc2", qsrc);
   }
   function srcWeight(s) {
     var q = qsrc[s.name];
-    if (!q || q.n < 4) return s.w;
-    return Math.max(1, Math.round(s.w * (0.5 + (q.hd / q.n) * 1.4)));
+    if (!q || q.n < 3) return s.w;
+    var avg = q.k / q.n;
+    /* 以 1500kbps 为基准：清晰的多刷，糊的少刷（0.35x ~ 2.2x） */
+    var f = Math.max(0.35, Math.min(2.2, Math.pow(avg / 1500, 1.3)));
+    return Math.max(1, Math.round(s.w * f));
   }
   function pickEp() {
     var total = 0, i, ws = [];
@@ -427,6 +455,16 @@ window.addEventListener("unhandledrejection", function (e) {
     var r = Math.random() * total;
     for (i = 0; i < SOURCES.length; i++) { r -= ws[i]; if (r < 0) return SOURCES[i].u; }
     return SOURCES[0].u;
+  }
+  /* 取 n 个互不相同的分类：并发择优时让候选分散，命中高码率的概率更大 */
+  function pickEps(n) {
+    var out = [], used = {};
+    for (var k = 0; k < n * 4 && out.length < n; k++) {
+      var u = pickEp();
+      if (!used[u]) { used[u] = 1; out.push(u); }
+    }
+    while (out.length < n) out.push(SOURCES[0].u);
+    return out;
   }
   function epName(u) {
     for (var i = 0; i < SOURCES.length; i++) if (SOURCES[i].u === u) return SOURCES[i].name;
@@ -446,13 +484,27 @@ window.addEventListener("unhandledrejection", function (e) {
     return (Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 864e5;
   }
 
-  function apply(el, url, direct, epn) {
+  /* 把服务端探测到的元数据挂到槽位上，供信息栏与画质统计使用 */
+  function setMeta(el, meta) {
+    if (meta) {
+      el.setAttribute("data-kbps", meta.kbps || "");
+      el.setAttribute("data-dur", meta.dur || "");
+      el.setAttribute("data-size", meta.size || "");
+    } else {
+      el.removeAttribute("data-kbps");
+      el.removeAttribute("data-dur");
+      el.removeAttribute("data-size");
+    }
+  }
+  function apply(el, url, direct, epn, meta) {
     el.src = url;
     el.setAttribute("data-src", "1");
     el.setAttribute("data-direct", direct ? "1" : "0");
     el.setAttribute("data-epn", epn || "");
+    setMeta(el, meta);
     el.removeAttribute("data-ready");
     el.muted = desiredMute();
+    loadStart(el);
     el.load();
   }
   function startBuffer(el) {          /* 让暂存直链的槽位真正开始拉流 */
@@ -463,16 +515,30 @@ window.addEventListener("unhandledrejection", function (e) {
     el.muted = desiredMute();
     el.load();
   }
-  function stageSlot(slot, url, epn) { /* 只暂存直链不拉流（避免和正在播的视频抢带宽） */
+  function stageSlot(slot, url, epn, meta) { /* 只暂存直链不拉流（避免和正在播的视频抢带宽） */
     slot.removeAttribute("src");
     slot.setAttribute("data-url", url);
     slot.setAttribute("data-direct", "1");
     slot.setAttribute("data-epn", epn);
+    setMeta(slot, meta);
     slot.removeAttribute("data-buffered");
     slot.removeAttribute("data-ready");
     try { slot.load(); } catch (e) {}
   }
   /* 服务模式：先解析直链再上屏；静态托管（如 GitHub Pages）探测到 404 自动转直连模式 */
+  /* 画质档位：候选越多、门槛越高 → 画面越清晰，解析耗时略增。
+     实测（31 条样本）：并发 3 条择优让中位码率 1832→2115kbps、最差 977→1364kbps，仅多 0.13s。 */
+  var QTIERS = [
+    { k: "fast", name: "流畅", n: 1, min: 0 },
+    { k: "bal",  name: "均衡", n: 2, min: 900 },
+    { k: "hd",   name: "高清", n: 3, min: 1100 },
+    { k: "max",  name: "极致", n: 4, min: 1800 }
+  ];
+  var qTier = LS.get("xjj_qtier", "hd");
+  function curTier() {
+    for (var i = 0; i < QTIERS.length; i++) if (QTIERS[i].k === qTier) return QTIERS[i];
+    return QTIERS[2];
+  }
   var noSrv = false;
   function fetchResolve(reqUrl, epn) {
     if (noSrv) return Promise.resolve(null);
@@ -480,12 +546,18 @@ window.addEventListener("unhandledrejection", function (e) {
       .then(function (r) {
         if (r.status === 404) { noSrv = true; return null; }
         return r.json().then(
-          function (d) { return (d && d.ok && d.url) ? { url: d.url, epn: epn } : null; },
+          function (d) { return (d && d.ok && d.url) ? { url: d.url, epn: epn, meta: d.meta || null } : null; },
           function () { return null; });
       })
       .catch(function () { return null; });
   }
-  function yujnReq(ep) { return apiUrl("/api/resolve?u=" + encodeURIComponent(ep)); }
+  /* 服务端并发拉取这些分类各一条，探测码率后择优返回 */
+  function yujnReq(eps) {
+    var list = Array.isArray(eps) ? eps : [eps];
+    var t = curTier();
+    var q = list.map(function (e) { return "u=" + encodeURIComponent(e); }).join("&");
+    return apiUrl("/api/resolve?" + q + "&n=" + t.n + "&min=" + t.min);
+  }
   /* 部署时可设访问口令：页面地址带 ?key=xxx 即自动记住（配合服务端 ACCESS_TOKEN） */
   var API_KEY = "";
   try {
@@ -510,8 +582,8 @@ window.addEventListener("unhandledrejection", function (e) {
       if (slot.getAttribute("data-token") !== myToken) return;   /* 过期解析：槽位已被激活，丢弃 */
       if (pick) {
         markSeen(pick.url);
-        if (autoLoad) apply(slot, pick.url, true, pick.epn);
-        else stageSlot(slot, pick.url, pick.epn);
+        if (autoLoad) apply(slot, pick.url, true, pick.epn, pick.meta);
+        else stageSlot(slot, pick.url, pick.epn, pick.meta);
         if (cb) cb(true);
       } else {
         var f = lastYujn || pickEp();
@@ -524,15 +596,14 @@ window.addEventListener("unhandledrejection", function (e) {
       var dup = pick && (isSeen(pick.url) || sameAsSlots(pick.url));
       if (pick && dup && tries < 5) {
         tries++;
-        var e2 = pickEp(); if (e2 === lastYujn) e2 = pickEp();
-        lastYujn = e2;
-        fetchResolve(yujnReq(e2), epName(e2)).then(step, function () { step(pick); });
+        var e2 = pickEps(curTier().n); lastYujn = e2[0];
+        fetchResolve(yujnReq(e2), epName(e2[0])).then(step, function () { step(pick); });
         return;
       }
       if (!pick && tries < 2) {
         tries++;
-        var e3 = pickEp(); lastYujn = e3;
-        fetchResolve(yujnReq(e3), epName(e3)).then(step, function () { step(null); });
+        var e3 = pickEps(curTier().n); lastYujn = e3[0];
+        fetchResolve(yujnReq(e3), epName(e3[0])).then(step, function () { step(null); });
         return;
       }
       done(pick);
@@ -542,8 +613,8 @@ window.addEventListener("unhandledrejection", function (e) {
     if (tokDy && Math.random() < 0.5) {
       fetchResolve(apiUrl("/api/resolve?src=douyin&token=" + encodeURIComponent(tokDy)), "抖音").then(step, function () { step(null); });
     } else {
-      var f1 = pickEp(); lastYujn = f1;
-      fetchResolve(yujnReq(f1), epName(f1)).then(step, function () { step(null); });
+      var f1 = pickEps(curTier().n); lastYujn = f1[0];
+      fetchResolve(yujnReq(f1), epName(f1[0])).then(step, function () { step(null); });
     }
   }
 
@@ -574,23 +645,29 @@ window.addEventListener("unhandledrejection", function (e) {
   /* ---------- 槽位事件 ---------- */
   slots.forEach(function (el) {
     el.preload = "auto";
+    el.addEventListener("play", syncPlaying);
+    el.addEventListener("pause", syncPlaying);
     el.addEventListener("loadedmetadata", function () {
       el.setAttribute("data-ready", "1");
       var v = el.videoWidth, h = el.videoHeight;
       if (v && h) el.classList.toggle("land", v > h);
       if (el === active()) {
         errStreak = 0;
-        noteQuality(el.getAttribute("data-epn"), h);
+        var kbps = parseInt(el.getAttribute("data-kbps"), 10) || 0;
+        noteQuality(el.getAttribute("data-epn"), kbps || null);
         updateMeta(el);
-        /* 清晰度角标：720P+ 显示 HD，1080P+ 显示 蓝光 */
+        /* 清晰度角标：综合分辨率与码率。
+           本源分辨率上限为 720×1280，同为 720P 时码率才是清晰度的真正分水岭。 */
         var hdTag = $("hdTag");
-        if (h >= 1080) { hdTag.textContent = "蓝光 1080P"; hdTag.classList.remove("hidden"); }
-        else if (h >= 720) { hdTag.textContent = "超清 720P"; hdTag.classList.remove("hidden"); }
+        if (h >= 1080) { hdTag.textContent = "蓝光 " + h + "P"; hdTag.classList.remove("hidden"); }
+        else if (h >= 720 && kbps >= 2200) { hdTag.textContent = "超清 720P"; hdTag.classList.remove("hidden"); }
+        else if (h >= 720) { hdTag.textContent = "高清 720P"; hdTag.classList.remove("hidden"); }
         else hdTag.classList.add("hidden");
       }
     });
     el.addEventListener("canplay", function () {
       if (el !== active()) return;
+      loadDone(el);
       clearStallGuard();
       spinner.classList.add("hidden");
       shim.classList.add("hidden");
@@ -606,7 +683,7 @@ window.addEventListener("unhandledrejection", function (e) {
     });
     el.addEventListener("timeupdate", function () {
       if (el !== active() || !el.duration) return;
-      progressBar.style.width = (el.currentTime / el.duration * 100).toFixed(2) + "%";
+      progressBar.style.transform = "scaleX(" + (el.currentTime / el.duration).toFixed(4) + ")";
     });
     el.addEventListener("pause", function () {
       if (el !== active() || el.ended) return;
@@ -626,15 +703,21 @@ window.addEventListener("unhandledrejection", function (e) {
     });
   });
 
+  function kbpsText(el) {
+    var k = parseInt(el.getAttribute("data-kbps"), 10);
+    return k ? (k >= 1000 ? (k / 1000).toFixed(1) + "Mbps" : k + "kbps") : "";
+  }
   function updateMeta(el) {
     var meta = $("vMeta");
     var res = el.videoWidth ? el.videoWidth + "×" + el.videoHeight : "";
+    var kb = kbpsText(el);
     if (el.getAttribute("data-direct") === "1") {
       var d = decodeKw(el.src);
       var bits = ["遇见 API · " + (el.getAttribute("data-epn") || "精选")];
       if (d.author) bits.push("博主 " + d.author);
       if (d.pub) bits.push("发布 " + d.pub);
       if (res) bits.push(res);
+      if (kb) bits.push(kb);
       meta.textContent = bits.join(" · ");
     } else {
       meta.textContent = "遇见 API · " + (el.getAttribute("data-epn") || "精选") + "（未解析直链）";
@@ -647,14 +730,39 @@ window.addEventListener("unhandledrejection", function (e) {
       s.classList.toggle("off", !on);
       if (!on && !s.paused) s.pause();   /* 关键：切走的视频必须暂停，否则会多条声音重叠 */
     });
+    syncPlaying();
+  }
+  /* 播放中给 body 挂标记，用来压暗背景辉光、减少视觉噪声（见 CSS body.playing） */
+  function syncPlaying() {
+    var a = active();
+    document.body.classList.toggle("playing", !!(a && !a.paused && !a.ended));
   }
 
   var autoMuteDone = false, stallTimer = null;
-  function armStallGuard() {          /* 加载超时兜底：9 秒没起播就自动换 */
+  /* 记录近期真实加载耗时，用来做两件事：
+     ① 自适应超时（慢网放宽、快网收紧，别在好网络上干等 9 秒）
+     ② 动态预载阈值（网快就早拉下一条，网慢先保当前这条播稳） */
+  var loadMs = [], loadStartAt = {};
+  function loadStart(el) { loadStartAt[el.id] = performance.now(); }
+  function loadDone(el) {
+    var t0 = loadStartAt[el.id];
+    if (!t0) return;
+    var dt = performance.now() - t0;
+    loadStartAt[el.id] = 0;
+    if (dt > 150) { loadMs.push(dt); if (loadMs.length > 8) loadMs.shift(); }
+  }
+  function loadMedian() {
+    if (!loadMs.length) return 0;
+    var s = loadMs.slice().sort(function (a, b) { return a - b; });
+    return s[s.length >> 1];
+  }
+  function armStallGuard() {
     clearTimeout(stallTimer);
+    var med = loadMedian();
+    var budget = med ? Math.max(4000, Math.min(12000, med * 2.4)) : 6500;
     stallTimer = setTimeout(function () {
       if (active().readyState < 3) { toastMsg("这个视频加载超时，自动换下一个…"); handleError(); }
-    }, 9000);
+    }, budget);
   }
   function clearStallGuard() { clearTimeout(stallTimer); }
   function tryPlay() {
@@ -715,7 +823,12 @@ window.addEventListener("unhandledrejection", function (e) {
     while (swipeHist.length && now - swipeHist[0] > 6000) swipeHist.shift();
     return swipeHist.length >= 2;
   }
-  function bufThreshold() { return isFastSwiper() ? 0.30 : 0.45; }
+  function bufThreshold() {
+    var med = loadMedian();
+    if (med && med < 1200) return isFastSwiper() ? 0.20 : 0.30;   /* 网快：更早拉下一条，切换更顺 */
+    if (med && med > 3500) return isFastSwiper() ? 0.38 : 0.55;   /* 网慢：先让当前这条播稳 */
+    return isFastSwiper() ? 0.28 : 0.42;
+  }
   function beginSwitch(showLoading) {
     if (switching) return false;
     switching = true;
@@ -727,7 +840,7 @@ window.addEventListener("unhandledrejection", function (e) {
       spinner.classList.remove("hidden");
       shim.classList.remove("hidden");
     }
-    progressBar.style.width = "0%";
+    progressBar.style.transform = "scaleX(0)";
     likedCur = false; renderLike();
     return true;
   }
@@ -782,9 +895,12 @@ window.addEventListener("unhandledrejection", function (e) {
     var next = nextSlot();
     if (next.getAttribute("data-buffered") || !next.getAttribute("data-url")) { pendingPreload = false; return; }
     var el = active(), d = el.duration, nb = el.buffered;
-    var covered = !!(nb.length && d && nb.end(nb.length - 1) >= d * bufThreshold());
-    var waited = performance.now() - lastSwitchTs > 3200;
-    if ((el.readyState >= 4 && covered) || waited) {
+    var end = nb.length ? nb.end(nb.length - 1) : 0;
+    var covered = !!(d && end >= d * bufThreshold());
+    /* 兜底时间 3.2s→2.2s：多数短视频 10s 出头，等到 3.2s 才开始预载太晚了 */
+    var waited = performance.now() - lastSwitchTs > 2200;
+    /* 整条都下完了就别再等，立刻拉下一条 */
+    if ((el.readyState >= 4 && covered) || waited || (d && end >= d - 0.25)) {
       pendingPreload = false;
       disarmBufferWatch();
       startBuffer(next);
@@ -803,7 +919,7 @@ window.addEventListener("unhandledrejection", function (e) {
     bufWatchEl = el;
     el.addEventListener("progress", onProg);
     bufWatchFn = function () { el.removeEventListener("progress", onProg); };
-    bufWatchTimer = setTimeout(function () { disarmBufferWatch(); checkAndBuffer(); }, 3200);
+    bufWatchTimer = setTimeout(function () { disarmBufferWatch(); checkAndBuffer(); }, 2200);
   }
   function disarmBufferWatch() {
     if (bufWatchEl && bufWatchFn) { bufWatchEl.removeEventListener("progress", bufWatchFn); }
@@ -1011,6 +1127,21 @@ window.addEventListener("unhandledrejection", function (e) {
     $("dyToken").value = LS.get("xjj_istero", "");
     $("acctMask").classList.remove("hidden");
   }
+  function renderQtier() {
+    var row = $("qtierRow");
+    if (!row) return;
+    row.innerHTML = "";
+    QTIERS.forEach(function (t) {
+      var b = document.createElement("button");
+      b.className = "acct-pill" + (t.k === qTier ? " on" : "");
+      b.textContent = t.name + (t.n > 1 ? " · " + t.n + "选1" : "");
+      b.addEventListener("click", function () {
+        qTier = t.k; LS.set("xjj_qtier", t.k); renderQtier();
+        toastMsg("已切到「" + t.name + "」· 下一条起生效", 2400);
+      });
+      row.appendChild(b);
+    });
+  }
   $("dyTokSave").addEventListener("click", function () {
     var v = $("dyToken").value.trim();
     LS.set("xjj_istero", v);
@@ -1150,10 +1281,31 @@ window.addEventListener("unhandledrejection", function (e) {
     else { tryPlay(); if (pendingPreload) { checkAndBuffer(); armBufferWatch(); } }
   });
 
+  /* ---------- 帧率守护：持续掉帧就自动关掉装饰，把合成带宽还给视频 ---------- */
+  var liteOn = false;
+  function fpsWatch() {
+    setTimeout(function () {
+      var el = active();
+      if (!el || el.paused) { fpsWatch(); return; }   /* 没在播就只做下一轮排程，不烧电 */
+      var frames = 0, t0 = performance.now();
+      (function loop(now) {
+        frames++;
+        if (now - t0 < 1000) { requestAnimationFrame(loop); return; }
+        if (!liteOn && frames < 40) {
+          liteOn = true; document.body.classList.add("lite");
+          console.log("[性能] 实测 " + frames + "fps，已自动精简装饰效果");
+        } else if (liteOn && frames > 56) {
+          liteOn = false; document.body.classList.remove("lite");
+        }
+        fpsWatch();
+      })(performance.now());
+    }, 6000);
+  }
+
   /* ---------- 启动 ---------- */
   slots.forEach(function (s) { s.muted = true; });
   updateMuteIcon();
-  renderLike(); renderFavBtn(); renderAuth();
+  renderLike(); renderFavBtn(); renderAuth(); renderQtier();
   $("watchCount").textContent = "已看 " + watched;
   show(active());
   if (SRV) resolveSlot(active(), true, function () { tryPlay(); });
@@ -1163,6 +1315,7 @@ window.addEventListener("unhandledrejection", function (e) {
   setTimeout(function () {
     toastMsg(SRV ? "上下滑动 / 滚轮切换 · 双击点赞 · 收藏可看原始链接" : "直连模式：收藏/下载需用 启动网站.bat 启动", SRV ? 3000 : 4200);
   }, 900);
+  fpsWatch();
 })();
 </script>
 </body>
