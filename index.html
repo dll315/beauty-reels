@@ -364,7 +364,7 @@ window.addEventListener("unhandledrejection", function (e) {
     { u: "https://api.yujn.cn/api/tianmei.php", name: "甜妹", w: 3 },
     { u: "https://api.yujn.cn/api/nvda.php", name: "热点", w: 2 },
     { u: "https://api.yujn.cn/api/rewu.php", name: "热舞", w: 2 },
-    { u: "https://api.yujn.cn/api/jiepai.php", name: "街拍", w: 2 },
+    { u: "https://api.yujn.cn/api/jiepai.php", name: "街拍", w: 0 },   /* 实测长期 404，暂时剔除 */
     { u: "https://api.yujn.cn/api/hanfu.php", name: "古装", w: 1 },
     { u: "https://api.yujn.cn/api/COS.php", name: "COS", w: 1 },
     { u: "https://api.yujn.cn/api/xjj.php", name: "精选", w: 1 },
@@ -435,35 +435,72 @@ window.addEventListener("unhandledrejection", function (e) {
   var qsrc = LS.get("xjj_qsrc2", {});   // 换新 key：旧数据是失真统计，直接作废
   function noteQuality(epn, kbps) {
     if (!epn) return;
-    var s = qsrc[epn] || (qsrc[epn] = { n: 0, k: 0 });
+    var s = qsrc[epn] || (qsrc[epn] = { n: 0, k: 0, f: 0 });
     s.n++;
     s.k += (kbps || 1500);
     if (s.n > 80) { s.k = s.k / 2; s.n = Math.ceil(s.n / 2); }   /* 滑动衰减，跟得上源的变化 */
     LS.set("xjj_qsrc2", qsrc);
   }
+  /* 坏源惩罚：某源连续/多次拿不到可用直链（404 或解析失败）就累计失败。
+     失败比例高的源权重压到极低，实现「自学习剔除死源」，根治间歇性加载失败。 */
+  function noteFail(epn) {
+    if (!epn) return;
+    var s = qsrc[epn] || (qsrc[epn] = { n: 0, k: 0, f: 0 });
+    s.f++;
+    if (s.f > 12) { s.f = 8; }              /* 封顶，防止单源永久霸榜 */
+    LS.set("xjj_qsrc2", qsrc);
+  }
   function srcWeight(s) {
     var q = qsrc[s.name];
-    if (!q || q.n < 3) return s.w;
+    /* 初始权重为 0（标记剔除的死源）仅在积累足够成功样本后才可能复活 */
+    if (s.w <= 0) {
+      if (!q || q.n < 3) return 0;         /* 无证据 → 保持剔除 */
+      /* 有 ≥3 次成功且失败极少 → 源疑似恢复，恢复初始权重让系统重试 */
+      if (q.f >= 3 && q.f / (q.n + q.f) >= 0.5) return 0;
+      return 1;
+    }
+    if (!q) return s.w;
+    /* 失败为主判据：失败多直接压到 0（剔除）。命中率 = 成功 / 总尝试 */
+    var tries = q.n + q.f;
+    if (q.f >= 3 && tries >= 4) {           /* 至少试了 4 次还老是失败 → 暂时剔除 */
+      if (q.f / tries >= 0.5) return 0;
+    }
+    if (q.n < 3) return s.w;                /* 样本不足，用初始权重 */
     var avg = q.k / q.n;
     /* 以 1500kbps 为基准：清晰的多刷，糊的少刷（0.35x ~ 2.2x） */
     var f = Math.max(0.35, Math.min(2.2, Math.pow(avg / 1500, 1.3)));
     return Math.max(1, Math.round(s.w * f));
   }
   function pickEp() {
-    var total = 0, i, ws = [];
-    for (i = 0; i < SOURCES.length; i++) { ws[i] = srcWeight(SOURCES[i]); total += ws[i]; }
+    var total = 0, i, ws = [], allZero = true;
+    for (i = 0; i < SOURCES.length; i++) {
+      ws[i] = srcWeight(SOURCES[i]);
+      total += ws[i];
+      if (ws[i] > 0) allZero = false;
+    }
+    if (allZero) {                          /* 极端：全被自学习剔除 → 用初始权重兜底 */
+      for (i = 0; i < SOURCES.length; i++) { ws[i] = SOURCES[i].w; total += SOURCES[i].w; }
+    }
     var r = Math.random() * total;
     for (i = 0; i < SOURCES.length; i++) { r -= ws[i]; if (r < 0) return SOURCES[i].u; }
     return SOURCES[0].u;
   }
-  /* 取 n 个互不相同的分类：并发择优时让候选分散，命中高码率的概率更大 */
+  /* 取 n 个互不相同的分类：并发择优时让候选分散，命中高码率的概率更大。
+     自学习剔除的坏源权重为 0，天然不会被选入候选。 */
   function pickEps(n) {
     var out = [], used = {};
-    for (var k = 0; k < n * 4 && out.length < n; k++) {
+    for (var k = 0; k < n * 6 && out.length < n; k++) {
       var u = pickEp();
       if (!used[u]) { used[u] = 1; out.push(u); }
     }
-    while (out.length < n) out.push(SOURCES[0].u);
+    /* 兜底补位：只从权重>0 的活源里补，绝不把已剔除的坏源塞回去 */
+    var live = SOURCES.filter(function (s) { return s.w > 0; });
+    while (out.length < n) {
+      var f = live.length ? live[out.length % live.length] : SOURCES[out.length % SOURCES.length];
+      if (!used[f.u]) { used[f.u] = 1; out.push(f.u); }
+      else if (live.length) out.push(live[(out.length + 1) % live.length].u);
+      else out.push(SOURCES[0].u);
+    }
     return out;
   }
   function epName(u) {
@@ -576,7 +613,7 @@ window.addEventListener("unhandledrejection", function (e) {
     slot.setAttribute("data-token", myToken);   /* 槽位若被激活，令牌作废，迟到解析丢弃 */
     armStallGuard();                      /* 任何解析开始就布防超时 */
     var tok = LS.get("xjj_istero", "");
-    var tries = 0, lastYujn = null;
+    var tries = 0, lastYujn = null, dlg = 0;
     function done(pick) {
       resolving--;
       if (slot.getAttribute("data-token") !== myToken) return;   /* 过期解析：槽位已被激活，丢弃 */
@@ -585,11 +622,21 @@ window.addEventListener("unhandledrejection", function (e) {
         if (autoLoad) apply(slot, pick.url, true, pick.epn, pick.meta);
         else stageSlot(slot, pick.url, pick.epn, pick.meta);
         if (cb) cb(true);
-      } else {
-        var f = lastYujn || pickEp();
-        apply(slot, f, false, epName(f));
-        if (cb) cb(false);
+        return;
       }
+      /* 解析彻底失败（坏源+服务端扩容仍没命中）：
+         不要盲目 302 直连（会撞上坏源再失败一次）。换一组好源再走服务端解析，
+         最多降级 2 次；仍失败才退回 302 直连兜底，绝不卡死用户。 */
+      if (lastYujn) noteFail(lastYujn);
+      if (dlg < 2 && SRV && !noSrv) {
+        dlg++;
+        var e9 = pickEps(curTier().n); lastYujn = e9[0];
+        fetchResolve(yujnReq(e9), epName(e9[0])).then(step, function () { step(null); });
+        return;
+      }
+      var f = lastYujn || pickEp();
+      apply(slot, f, false, epName(f));
+      if (cb) cb(false);
     }
     function step(pick) {
       /* 去重硬规则：重复的换源重取（最多 5 次）；解析失败先重试 2 次 */
@@ -602,6 +649,7 @@ window.addEventListener("unhandledrejection", function (e) {
       }
       if (!pick && tries < 2) {
         tries++;
+        if (lastYujn) noteFail(lastYujn);   /* 记录这次出问题的源，自学习降权 */
         var e3 = pickEps(curTier().n); lastYujn = e3[0];
         fetchResolve(yujnReq(e3), epName(e3[0])).then(step, function () { step(null); });
         return;

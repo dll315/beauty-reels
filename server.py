@@ -295,15 +295,10 @@ class Handler(SimpleHTTPRequestHandler):
         if any(urllib.parse.urlparse(u).scheme != "https" for u in eps):
             self.send_json({"ok": False, "error": "https required"}, 403)
             return
-        pool = list(eps)
-        picked = []
-        while len(picked) < n:
-            if not pool:
-                pool = list(eps)
-            picked.append(pool.pop(0))
-
         def fetch(ep):
-            """解析一个候选：拿直链 → 验活 → 探测元数据"""
+            """解析一个候选：拿直链 → 验活 → 探测元数据。
+            返回 None 表示该直链无效（404/非视频）；此时候选源大概率不稳定，
+            由外层扩容重试去补位，而不是让整体解析失败。"""
             u = ep
             if "type=json" not in u:
                 u = u + ("&" if "?" in u else "?") + "type=json"
@@ -321,21 +316,37 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:
                 return None
 
+        # 坏直链容错：源不稳定（返回 404）时，扩大候选数并剔除已试过的坏源，
+        # 最多重试 MAX_ROUNDS 轮。由于同一源每次可能返回不同直链，
+        # 多轮多源采样能显著提高命中好直链的概率，避免对用户 502。
+        MAX_ROUNDS = 3
         results = []
-        if n == 1:
-            r = fetch(picked[0])
-            if r:
-                results.append(r)
-        else:
-            try:
-                for r in POOL.map(fetch, picked):
-                    if r:
-                        results.append(r)
-            except Exception:
-                if not results and picked:
-                    r = fetch(picked[0])
-                    if r:
-                        results.append(r)
+        tried = set()
+        all_sources = list(eps)
+        for _ in range(MAX_ROUNDS):
+            # 本轮候选：优先补足到 n 个没试过、且未成功过的源
+            pool = [e for e in all_sources if e not in tried]
+            if not pool:
+                pool = [e for e in all_sources]
+            picked = []
+            while len(picked) < n and pool:
+                picked.append(pool.pop(0))
+            if not picked:
+                break
+            tried.update(picked)
+            if n == 1:
+                r = fetch(picked[0])
+                if r:
+                    results.append(r)
+            else:
+                try:
+                    for r in POOL.map(fetch, picked):
+                        if r:
+                            results.append(r)
+                except Exception:
+                    pass
+            if results:
+                break   # 已有好直链，择优后返回
 
         if not results:
             self.send_json({"ok": False, "error": "resolve failed"}, 502)
